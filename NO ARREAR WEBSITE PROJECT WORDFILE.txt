@@ -1,0 +1,23 @@
+NO ARREAR WEBSITE PRIJECT :
+
+MONGO DB ATLAS STRING : mongodb+srv://noarrearwebsite:noarrear2307@noarrear.yuvwwpz.mongodb.net/
+
+GEMINI API KEY : bcastudentakash@gmail.com
+
+MAIL & POSTMAN : noarrearwebsite@gmail.com
+PASS : @NOARREARWEBSITE2307
+
+CLAUDE MAILS : fullstack , akashneet , noarrear ,bcastudentakash , pakash
+                , pakash , steveakash pass : @Steve_Akash2307 ,
+
+Things I noticed
+
+The zip includes node_modules (~146 MB) and three uploaded papers. The node_modules has Windows-only native binaries (sharp-win32-x64, @napi-rs/canvas-win32), so it won't run on Linux or macOS without a reinstall. The papers in uploads/papers/ look like real user files, which your .gitignore is meant to keep out of version control.
+No per-user or stricter rate limit on /auth/login, /auth/register or the /questions/ask* endpoints. Only the global 300 requests per 15 minutes per IP applies. That leaves room for brute-force attempts and for running up your Gemini quota.
+The Subject model exists but has no routes or controllers.
+Papers can't be listed, fetched or deleted through the API. Questions and answers also aren't saved anywhere, and Q&A isn't connected to extracted paper text yet.
+Smaller points:
+Tokens last 7 days with no revocation.
+Up to 1M characters of extracted text sit in a single MongoDB document.
+trust proxy is only set in production.
+The default Gemini model name, gemini-3.8-flash, isn't something I've verified.

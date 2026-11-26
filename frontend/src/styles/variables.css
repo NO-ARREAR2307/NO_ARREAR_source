@@ -1,0 +1,56 @@
+:root {
+  /* Brand palette */
+  --black-red: #100001;
+  --crimson: #dc0208;
+  --champagne: #ffef93;
+
+  /* Supporting */
+  --white: #ffffff;
+  --bg: #faf7f5;
+  --surface: #ffffff;
+  --border: #ece4e1;
+  --text: #100001;
+  --text-muted: #6b5d5e;
+
+  --crimson-dark: #b00106;
+  --crimson-soft: rgba(220, 2, 8, 0.08);
+  --champagne-soft: #fff9d6;
+  --black-red-soft: #2a0a0c;
+
+  /* Typography */
+  --font-body: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-heading: 'Sora', 'Inter', system-ui, sans-serif;
+  --fs-xs: 0.75rem;
+  --fs-sm: 0.875rem;
+  --fs-md: 1rem;
+  --fs-lg: 1.125rem;
+  --fs-xl: 1.5rem;
+  --fs-2xl: clamp(1.75rem, 3vw + 1rem, 2.5rem);
+  --fs-hero: clamp(2.25rem, 5vw + 1rem, 4rem);
+
+  /* Spacing */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --space-8: 4.5rem;
+
+  /* Shape & depth */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --radius-full: 999px;
+  --shadow-sm: 0 1px 2px rgba(16, 0, 1, 0.06);
+  --shadow-md: 0 8px 24px rgba(16, 0, 1, 0.08);
+  --shadow-lg: 0 24px 60px rgba(16, 0, 1, 0.22);
+  --focus-ring: 0 0 0 3px rgba(220, 2, 8, 0.28);
+
+  /* Layout */
+  --navbar-h: 64px;
+  --sidebar-w: 248px;
+  --container-w: 1120px;
+  --transition: 0.18s ease;
+}

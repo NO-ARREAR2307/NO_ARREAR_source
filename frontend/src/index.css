@@ -1,0 +1,350 @@
+:root {
+  /* Palette: black red #100001 · crimson #DC0208 · champagne yellow #FFEF93 */
+  --text: #5b4547;
+  --text-h: #100001;
+  --bg: #fff8e6;
+  --border: rgba(16, 0, 1, 0.12);
+  --code-bg: rgba(255, 255, 255, 0.55);
+  --accent: #b8040a;
+  --accent-bg: rgba(220, 2, 8, 0.08);
+  --accent-border: rgba(220, 2, 8, 0.45);
+  --social-bg: rgba(255, 255, 255, 0.45);
+  --shadow:
+    rgba(16, 0, 1, 0.1) 0 12px 32px -8px, rgba(16, 0, 1, 0.06) 0 4px 10px -4px;
+
+  /* Liquid glass tokens */
+  --crimson: #dc0208;
+  --crimson-soft: #ff4d54;
+  --champagne: #ffef93;
+  --black-red: #100001;
+  --glass-bg: rgba(255, 255, 255, 0.5);
+  --glass-bg-strong: rgba(255, 255, 255, 0.72);
+  --glass-border: rgba(255, 255, 255, 0.7);
+  --glass-highlight: rgba(255, 255, 255, 0.85);
+  --glass-shade: rgba(16, 0, 1, 0.06);
+  --glass-blur: blur(18px) saturate(160%);
+  --focus-ring: rgba(220, 2, 8, 0.28);
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 22px;
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --page-bg:
+    radial-gradient(
+      55rem 38rem at 88% -8%,
+      rgba(255, 239, 147, 0.75),
+      transparent 62%
+    ),
+    radial-gradient(
+      48rem 34rem at -8% 108%,
+      rgba(220, 2, 8, 0.14),
+      transparent 62%
+    ),
+    linear-gradient(180deg, #fffaf0 0%, #fff3d6 100%);
+
+  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
+  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
+  --mono: ui-monospace, Consolas, monospace;
+
+  font: 18px/145% var(--sans);
+  letter-spacing: 0.18px;
+  color-scheme: light dark;
+  color: var(--text);
+  background: var(--bg);
+  background-image: var(--page-bg);
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  scrollbar-color: var(--accent-border) transparent;
+
+  @media (max-width: 1024px) {
+    font-size: 16px;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --text: #d6c4c1;
+    --text-h: #fff7e0;
+    --bg: #100001;
+    --border: rgba(255, 239, 147, 0.14);
+    --code-bg: rgba(255, 255, 255, 0.06);
+    --accent: #ff4d54;
+    --accent-bg: rgba(220, 2, 8, 0.18);
+    --accent-border: rgba(220, 2, 8, 0.55);
+    --social-bg: rgba(255, 255, 255, 0.05);
+    --shadow:
+      rgba(0, 0, 0, 0.5) 0 14px 36px -10px, rgba(0, 0, 0, 0.35) 0 4px 10px -4px;
+
+    --glass-bg: rgba(255, 255, 255, 0.06);
+    --glass-bg-strong: rgba(255, 255, 255, 0.1);
+    --glass-border: rgba(255, 255, 255, 0.14);
+    --glass-highlight: rgba(255, 255, 255, 0.22);
+    --glass-shade: rgba(0, 0, 0, 0.35);
+    --focus-ring: rgba(255, 239, 147, 0.3);
+    --page-bg:
+      radial-gradient(
+        55rem 38rem at 88% -10%,
+        rgba(220, 2, 8, 0.32),
+        transparent 62%
+      ),
+      radial-gradient(
+        48rem 34rem at -8% 108%,
+        rgba(220, 2, 8, 0.18),
+        transparent 62%
+      ),
+      radial-gradient(
+        30rem 20rem at 8% 0%,
+        rgba(255, 239, 147, 0.07),
+        transparent 70%
+      ),
+      linear-gradient(180deg, #100001 0%, #1b0305 100%);
+  }
+
+  #social .button-icon {
+    filter: invert(1) brightness(2);
+  }
+}
+
+/* Slightly more opaque glass where backdrop blur is unsupported */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root {
+    --glass-bg: rgba(255, 255, 255, 0.82);
+    --glass-bg-strong: rgba(255, 255, 255, 0.92);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --glass-bg: rgba(38, 8, 10, 0.9);
+      --glass-bg-strong: rgba(52, 12, 15, 0.95);
+    }
+  }
+}
+
+body {
+  margin: 0;
+}
+
+#root {
+  width: 1126px;
+  max-width: 100%;
+  margin: 0 auto;
+  text-align: center;
+  border-inline: 1px solid var(--glass-border);
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  /* Glass panel (no backdrop-filter here so fixed-position children keep working) */
+  background: linear-gradient(
+    180deg,
+    var(--glass-bg-strong) 0%,
+    var(--glass-bg) 40%,
+    var(--glass-bg) 100%
+  );
+  box-shadow:
+    inset 1px 0 0 var(--glass-highlight),
+    inset -1px 0 0 var(--glass-shade),
+    0 0 90px -40px var(--glass-shade);
+}
+
+h1,
+h2 {
+  font-family: var(--heading);
+  font-weight: 500;
+  color: var(--text-h);
+}
+
+h1 {
+  font-size: 56px;
+  letter-spacing: -1.68px;
+  margin: 32px 0;
+  @media (max-width: 1024px) {
+    font-size: 36px;
+    margin: 20px 0;
+  }
+}
+h2 {
+  font-size: 24px;
+  line-height: 118%;
+  letter-spacing: -0.24px;
+  margin: 0 0 8px;
+  @media (max-width: 1024px) {
+    font-size: 20px;
+  }
+}
+p {
+  margin: 0;
+}
+
+code,
+.counter {
+  font-family: var(--mono);
+  display: inline-flex;
+  border-radius: 8px;
+  color: var(--text-h);
+}
+
+code {
+  font-size: 15px;
+  line-height: 135%;
+  padding: 4px 8px;
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  box-shadow: inset 0 1px 0 var(--glass-highlight);
+}
+
+/* ------------------------------------------------------------------
+   Liquid glass defaults for common elements.
+   Wrapped in :where() so they have zero specificity: any class or id
+   rule already in your components still wins and layouts stay intact.
+------------------------------------------------------------------- */
+
+:where(a) {
+  color: var(--accent);
+  text-decoration-color: var(--accent-border);
+  text-underline-offset: 3px;
+  transition: color 0.2s var(--ease);
+}
+
+:where(a:hover) {
+  color: var(--crimson);
+}
+
+:where(button) {
+  font: inherit;
+  color: var(--text-h);
+  background: linear-gradient(
+    180deg,
+    var(--glass-bg-strong) 0%,
+    var(--glass-bg) 100%
+  );
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  padding: 0.55em 1.1em;
+  cursor: pointer;
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow:
+    inset 0 1px 0 var(--glass-highlight),
+    var(--shadow);
+  transition:
+    background 0.25s var(--ease),
+    border-color 0.25s var(--ease),
+    box-shadow 0.25s var(--ease),
+    transform 0.2s var(--ease);
+}
+
+:where(button:hover:not(:disabled)) {
+  border-color: var(--accent-border);
+  box-shadow:
+    inset 0 1px 0 var(--glass-highlight),
+    var(--shadow);
+  transform: translateY(-1px);
+}
+
+:where(button:active:not(:disabled)) {
+  transform: translateY(0);
+}
+
+/* Primary (submit) buttons: crimson glass with a champagne rim light */
+:where(button[type='submit']) {
+  color: #fff;
+  background: linear-gradient(180deg, #f0262c 0%, var(--crimson) 55%, #a80106 100%);
+  border-color: rgba(255, 239, 147, 0.45);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.2),
+    0 8px 20px -8px rgba(220, 2, 8, 0.55);
+}
+
+:where(button[type='submit']:hover:not(:disabled)) {
+  border-color: var(--champagne);
+}
+
+:where(button:disabled) {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+:where(
+    input:not([type='checkbox']):not([type='radio']):not([type='range']):not(
+        [type='file']
+      ):not([type='color']),
+    select,
+    textarea
+  ) {
+  font: inherit;
+  color: var(--text-h);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  padding: 0.6em 0.85em;
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow:
+    inset 0 1px 2px var(--glass-shade),
+    inset 0 1px 0 var(--glass-highlight);
+  transition:
+    border-color 0.2s var(--ease),
+    box-shadow 0.2s var(--ease),
+    background 0.2s var(--ease);
+}
+
+:where(input, textarea)::placeholder {
+  color: var(--text);
+  opacity: 0.7;
+}
+
+:where(
+    input:not([type='checkbox']):not([type='radio']):not([type='range']):not(
+        [type='file']
+      ):not([type='color']):focus,
+    select:focus,
+    textarea:focus
+  ) {
+  outline: none;
+  border-color: var(--accent-border);
+  background: var(--glass-bg-strong);
+  box-shadow:
+    inset 0 1px 0 var(--glass-highlight),
+    0 0 0 3px var(--focus-ring);
+}
+
+:where(input[type='checkbox'], input[type='radio'], input[type='range']) {
+  accent-color: var(--crimson);
+}
+
+:where(hr) {
+  border: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--border) 20%,
+    var(--border) 80%,
+    transparent
+  );
+}
+
+:where(:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: rgba(220, 2, 8, 0.28);
+  color: var(--text-h);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(a, button, input, select, textarea) {
+    transition: none;
+  }
+
+  :where(button:hover:not(:disabled)) {
+    transform: none;
+  }
+}

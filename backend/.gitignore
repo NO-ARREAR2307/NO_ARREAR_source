@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Build / test output
+coverage/
+dist/
+build/
+
+# Uploaded question papers (private user files; the folder itself is kept via .gitkeep)
+uploads/papers/*
+!uploads/papers/.gitkeep
+
+# OCR language data cache (downloaded by Tesseract.js on first use)
+.ocr-cache/
+
+# Archives
+*.zip
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor / IDE (keep shared VS Code settings if you add them)
+.idea/

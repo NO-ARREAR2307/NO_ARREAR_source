@@ -1,0 +1,108 @@
+/* Glassmorphism layer – translucent surfaces, backdrop blur, subtle borders. Palette stays crimson / champagne. */
+:root {
+  --glass-bg: rgba(255, 255, 255, 0.62);
+  --glass-bg-strong: rgba(255, 255, 255, 0.78);
+  --glass-border: rgba(255, 255, 255, 0.65);
+  --glass-edge: rgba(220, 2, 8, 0.14);
+  --glass-shadow: 0 8px 32px rgba(16, 0, 1, 0.1);
+  --glass-blur: blur(16px) saturate(160%);
+}
+
+/* Soft colour wash behind the app so the blur has something to refract. */
+.app-shell {
+  background:
+    radial-gradient(520px circle at 8% 12%, rgba(220, 2, 8, 0.14), transparent 60%),
+    radial-gradient(620px circle at 92% 18%, rgba(255, 239, 147, 0.55), transparent 60%),
+    radial-gradient(560px circle at 60% 100%, rgba(220, 2, 8, 0.1), transparent 60%),
+    var(--bg);
+  background-attachment: fixed;
+}
+
+/* Cards */
+.glass {
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease, background 0.25s ease;
+}
+.glass:hover { background: var(--glass-bg-strong); border-color: var(--glass-edge); box-shadow: 0 14px 40px rgba(16, 0, 1, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.8); }
+.glass--interactive { cursor: pointer; }
+.glass--interactive:hover { transform: translateY(-3px); border-color: rgba(220, 2, 8, 0.35); }
+.card-link { display: block; border-radius: var(--radius-lg); }
+.card-link:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.card-link .card { height: 100%; }
+
+/* Academic cards used on the Academics page get the same treatment */
+.app-main .card { background: var(--glass-bg); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); border: 1px solid var(--glass-border); box-shadow: var(--glass-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.7); }
+.app-main .card:hover { border-color: var(--glass-edge); }
+.app-main .subject { background: rgba(255, 255, 255, 0.5); transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease; }
+.app-main .field__input { background-color: rgba(255, 255, 255, 0.7); }
+
+/* Welcome banner: dark frosted glass over the crimson glow */
+.glass-dark {
+  position: relative;
+  overflow: hidden;
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 239, 147, 0.22);
+  background:
+    radial-gradient(circle at 90% 0%, rgba(220, 2, 8, 0.6), transparent 55%),
+    radial-gradient(circle at 5% 100%, rgba(255, 239, 147, 0.16), transparent 50%),
+    rgba(16, 0, 1, 0.9);
+}
+
+/* Sidebar */
+.glass-sidebar {
+  background: linear-gradient(180deg, rgba(42, 10, 12, 0.78), rgba(16, 0, 1, 0.82));
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  backdrop-filter: blur(18px) saturate(150%);
+  border-right: 1px solid rgba(255, 239, 147, 0.16);
+  box-shadow: 8px 0 32px rgba(16, 0, 1, 0.18);
+  overflow-y: auto;
+}
+.glass-sidebar .sidebar__link { border: 1px solid transparent; transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, transform 0.2s ease; }
+.glass-sidebar .sidebar__link:hover { background: rgba(255, 255, 255, 0.09); border-color: rgba(255, 239, 147, 0.2); transform: translateX(2px); }
+.glass-sidebar .sidebar__link.is-active { background: linear-gradient(135deg, rgba(220, 2, 8, 0.9), rgba(176, 1, 6, 0.85)); border-color: rgba(255, 239, 147, 0.35); box-shadow: 0 6px 18px rgba(220, 2, 8, 0.35); }
+.glass-sidebar .skeleton { background-color: rgba(255, 255, 255, 0.14); }
+
+/* Profile page */
+.details dt { display: flex; align-items: center; gap: var(--space-1); }
+.info-grid { display: grid; gap: var(--space-4); grid-template-columns: 1fr; margin: 0; }
+@media (min-width: 700px) { .info-grid { grid-template-columns: repeat(3, 1fr); } }
+.info-tile { scroll-margin-top: calc(var(--navbar-h) + var(--space-4)); padding: var(--space-4); background: rgba(255, 255, 255, 0.5); border: 1px solid var(--glass-border); border-radius: var(--radius-md); transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease; }
+.info-tile:hover, .info-tile:target { border-color: rgba(220, 2, 8, 0.35); box-shadow: var(--shadow-md); transform: translateY(-2px); }
+.info-tile dt { font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); }
+.info-tile dd { margin: 0; font-family: var(--font-heading); font-size: var(--fs-lg); font-weight: 600; overflow-wrap: anywhere; }
+#personal { scroll-margin-top: calc(var(--navbar-h) + var(--space-4)); }
+.card__header { flex-wrap: wrap; }
+
+/* Skeleton loaders */
+.skeleton {
+  display: block;
+  background: linear-gradient(90deg, rgba(16, 0, 1, 0.06) 25%, rgba(255, 239, 147, 0.5) 50%, rgba(16, 0, 1, 0.06) 75%);
+  background-size: 200% 100%;
+  border-radius: var(--radius-sm);
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+.skeleton--mb { margin-bottom: var(--space-3); }
+.skeleton--mb-sm { margin-bottom: var(--space-2); }
+.skeleton-text { display: grid; gap: var(--space-2); }
+.skeleton-card { background: var(--glass-bg); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); }
+@keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+
+/* Fallbacks and accessibility */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass, .app-main .card, .skeleton-card { background: rgba(255, 255, 255, 0.94); }
+  .glass-sidebar { background: var(--black-red-soft); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton { animation: none; }
+  .glass, .glass--interactive:hover, .glass-sidebar .sidebar__link, .info-tile { transition: none; transform: none; }
+}
+/* Phones: lighter blur keeps scrolling smooth */
+@media (max-width: 899px) {
+  .glass, .app-main .card { -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+  .glass-sidebar { background: linear-gradient(180deg, rgba(42, 10, 12, 0.94), rgba(16, 0, 1, 0.96)); }
+}

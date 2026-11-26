@@ -1,0 +1,20 @@
+/* Saved questions page and the "Save question set" dialog */
+.saved-toolbar { grid-template-columns: 1fr; }
+@media (min-width: 640px) { .saved-toolbar { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); } .saved-toolbar .materials-toolbar__search { grid-column: auto; } }
+.saved-source { display: inline-flex; align-items: center; gap: 0.3rem; }
+.saved-source svg { flex-shrink: 0; }
+
+.saved-view { display: grid; gap: var(--space-4); min-width: 0; }
+.saved-view__facts { margin: 0; }
+.saved-view__loading { margin-top: var(--space-4); }
+.saved-view__count { display: inline-flex; align-items: center; gap: var(--space-1); margin: 0; font-size: var(--fs-sm); }
+.saved-answer__key, .saved-answer__text { margin: 0 0 var(--space-1); overflow-wrap: anywhere; }
+.saved-answer__text:last-child, .saved-answer__key:last-child { margin-bottom: 0; }
+.saved-answer__text + .gen-answer__points { margin-top: var(--space-1); }
+
+.saved-save__fixed { display: grid; gap: var(--space-1); margin: 0; overflow-wrap: anywhere; font-weight: 500; }
+
+/* Admin: the all-students list adds a student filter and shows who saved each set. */
+@media (min-width: 640px) { .materials-toolbar.saved-toolbar--admin { grid-template-columns: minmax(0, 2fr) repeat(2, minmax(0, 1fr)); } }
+.saved-owner { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem; }
+.saved-owner svg { flex-shrink: 0; }

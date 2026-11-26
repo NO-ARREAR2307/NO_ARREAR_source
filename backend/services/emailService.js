@@ -4,43 +4,72 @@ const { config } = require('../config/env');
 const ApiError = require('../utils/ApiError');
 const logger = require('../utils/logger');
 
-// Sends email through Brevo SMTP (smtp-relay.brevo.com) with Nodemailer.
+// Sends email through the Brevo (Sendinblue) HTTPS Transactional Email API: POST https://api.brevo.com/v3/smtp/email.
+// HTTPS (port 443) is used instead of SMTP because hosts such as Render block outgoing SMTP ports (ETIMEDOUT on 587).
 //
 // Security rules for this file:
-//   - Credentials come only from the environment (config.email) and are never logged or returned.
+//   - The API key comes only from the environment (config.email.apiKey). It is sent only in the "api-key" request
+//     header and is never logged, returned or placed in an error message.
 //   - The one-time code is only placed in the message that is sent. It is never logged and never
 //     part of an error message or API response.
-//   - SMTP server replies are not logged as-is (they can contain the recipient's address). The log gets
-//     the error code, SMTP response code, failing command and a sanitized error message (credentials,
-//     code and recipient removed). The client only ever sees a generic message.
+//   - Brevo's error replies are not logged as-is (they can contain the recipient's address). The log gets
+//     the HTTP status, Brevo's error code and a sanitized message (key, code and recipient removed).
+//     The client only ever sees a generic message.
 
 const SEND_FAILURE = 'We could not send the verification email right now. Please try again later.';
 
 // ---------- transport handling ----------
 
-// Nodemailer is loaded on first use (like the OCR engine), so the server starts and the tests run
-// without it. In production it is a normal dependency (see package.json).
-const createSmtpTransport = () => {
-  const nodemailer = require('nodemailer');
-  const { host, port, user, pass, timeoutMs } = config.email;
-  return nodemailer.createTransport({
-    host,
-    port,
-    // Brevo: port 587 = STARTTLS (upgrade right after connecting), port 465 = implicit TLS.
-    secure: port === 465,
-    requireTLS: port !== 465, // never fall back to sending credentials in clear text
-    auth: { user, pass },
-    connectionTimeout: timeoutMs,
-    greetingTimeout: timeoutMs,
-    socketTimeout: timeoutMs,
-    tls: { minVersion: 'TLSv1.2' },
-    // Nodemailer's own debug/logger output stays off: it would print SMTP traffic.
-    logger: false,
-    debug: false,
-  });
-};
+// The transport is an object with sendMail(message), where message = { from: { name, address }, to, subject, text, html }.
+// The default one posts the message to Brevo over HTTPS. Tests replace it with a fake (see _setTransportForTests).
+const createBrevoTransport = () => ({
+  sendMail: async (message) => {
+    const { apiKey, apiUrl, timeoutMs } = config.email;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    let response;
+    try {
+      response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'api-key': apiKey,
+          'content-type': 'application/json',
+          accept: 'application/json',
+        },
+        body: JSON.stringify({
+          sender: { name: message.from.name, email: message.from.address },
+          to: [{ email: message.to }],
+          subject: message.subject,
+          htmlContent: message.html,
+          textContent: message.text,
+        }),
+        signal: controller.signal,
+      });
+    } catch (err) {
+      const error = new Error(err && err.name === 'AbortError' ? 'Request to Brevo timed out' : String((err && err.message) || err));
+      error.code = err && err.name === 'AbortError' ? 'ETIMEDOUT' : (err && err.cause && err.cause.code) || (err && err.code) || 'ECONNECTION';
+      throw error;
+    } finally {
+      clearTimeout(timer);
+    }
 
-let transportFactory = createSmtpTransport;
+    if (!response.ok) {
+      let body = {};
+      try {
+        body = await response.json();
+      } catch (parseError) {
+        body = {};
+      }
+      const error = new Error(String(body.message || `Brevo answered HTTP ${response.status}`));
+      error.code = 'BREVO_HTTP_ERROR';
+      error.httpStatus = response.status;
+      error.brevoCode = body.code;
+      throw error;
+    }
+  },
+});
+
+let transportFactory = createBrevoTransport;
 let transport = null;
 
 const getTransport = () => {
@@ -48,8 +77,8 @@ const getTransport = () => {
   return transport;
 };
 
-// True when the three required Brevo settings are present.
-const isEmailConfigured = () => Boolean(config.email.user && config.email.pass && config.email.fromAddress);
+// True when the two required settings are present: the Brevo API key and a verified sender address.
+const isEmailConfigured = () => Boolean(config.email.apiKey && config.email.fromAddress);
 
 // ---------- message ----------
 
@@ -106,64 +135,60 @@ const buildOtpMessage = ({ to, name, otp, expiresInMinutes, purpose = 'verificat
 
 // ---------- diagnostics (server log only; the client always gets the generic SEND_FAILURE) ----------
 
-// Removes anything secret or personal from text taken from an error before it is logged: the SMTP
-// key and login, the one-time code, the recipient address, and anything that looks like a Brevo key.
+// Removes anything secret or personal from text taken from an error before it is logged: the API key,
+// the one-time code, the recipient address, and anything that looks like a Brevo key.
 const sanitizeForLog = (value, { to, otp } = {}) => {
   let text = String(value == null ? '' : value);
-  const secrets = [config.email.pass, config.email.user, to, otp];
+  const secrets = [config.email.apiKey, to, otp];
   secrets.forEach((secret) => {
     if (secret && String(secret).length >= 4) text = text.split(String(secret)).join('[redacted]');
   });
-  text = text.replace(/xsmtpsib-[A-Za-z0-9-]+/g, '[redacted]').replace(/xkeysib-[A-Za-z0-9-]+/g, '[redacted]');
+  text = text.replace(/xkeysib-[A-Za-z0-9-]+/g, '[redacted]').replace(/xsmtpsib-[A-Za-z0-9-]+/g, '[redacted]');
   text = text.replace(/[\r\n]+/g, ' ').trim();
   return text.length > 300 ? `${text.slice(0, 300)}...` : text;
 };
 
-// Maps an error to a short, actionable cause. Only error codes and SMTP reply codes are used here.
+// Maps an error to a short, actionable cause. Only error codes and HTTP statuses are used here.
 const getFailureHint = (err) => {
   const code = (err && err.code) || 'UNKNOWN';
-  const responseCode = err && err.responseCode;
+  const status = err && err.httpStatus;
 
-  if (code === 'MODULE_NOT_FOUND') {
-    return 'The "nodemailer" package is not installed. Run "npm install" in the backend folder, then restart the server.';
+  if (status === 401) {
+    return 'Brevo rejected the API key. BREVO_API_KEY must be an API key (starts with "xkeysib-") from Brevo > SMTP & API > API Keys, not an SMTP key or your account password. Make sure it was not revoked or deactivated.';
   }
-  if (code === 'EAUTH' || responseCode === 535 || responseCode === 534) {
-    return 'Brevo rejected the login. BREVO_SMTP_USER must be the SMTP login and BREVO_SMTP_PASS the SMTP key from Brevo (SMTP & API > SMTP), not your account email, account password or API key. Make sure the key was not revoked and that no old BREVO_* variable is set in your system/terminal environment (it would override .env).';
+  if (status === 403) {
+    return 'Brevo refused the request. The account may be inactive, or this server\'s IP address is not allowed: check Brevo > Security > Authorised IPs (deactivate IP blocking on Render, whose IPs change).';
   }
-  if (code === 'EENVELOPE' || responseCode === 550 || responseCode === 553 || responseCode === 554) {
-    return 'Brevo refused the sender or recipient. EMAIL_FROM_ADDRESS must be a sender (or domain) verified and activated in Brevo; free webmail addresses such as gmail.com are often rejected.';
+  if (status === 400) {
+    return 'Brevo rejected the message. EMAIL_FROM_ADDRESS must be a sender (or domain) verified and activated in Brevo (Senders, Domains & Dedicated IPs), and the recipient address must be valid.';
   }
-  if (code === 'ESOCKET' || code === 'ECONNECTION' || code === 'ETIMEDOUT' || code === 'ECONNREFUSED' || code === 'ECONNRESET') {
-    return 'Could not connect to the SMTP server. Check internet access, firewall/antivirus/VPN, BREVO_SMTP_HOST and BREVO_SMTP_PORT (587 or 465), and that port is not blocked by your network.';
+  if (status === 429) {
+    return 'Brevo rate limit or daily sending quota reached. Wait and try again, or check the Brevo plan limits.';
+  }
+  if (status && status >= 500) {
+    return 'Brevo is having a temporary problem (HTTP 5xx). Try again later and check status.brevo.com.';
+  }
+  if (code === 'ETIMEDOUT' || code === 'ECONNREFUSED' || code === 'ECONNRESET' || code === 'ECONNECTION' || code === 'UND_ERR_CONNECT_TIMEOUT') {
+    return 'Could not reach the Brevo API over HTTPS. Check the server\'s internet access and BREVO_API_URL (default https://api.brevo.com/v3/smtp/email).';
   }
   if (code === 'ENOTFOUND' || code === 'EDNS' || code === 'EAI_AGAIN') {
-    return 'The SMTP host name could not be resolved. Check BREVO_SMTP_HOST and your DNS/internet connection.';
+    return 'The Brevo API host name could not be resolved. Check BREVO_API_URL and the server\'s DNS/internet connection.';
   }
-  if (code === 'ETLS' || /certificate|TLS|SSL|wrong version/i.test(String((err && err.message) || ''))) {
-    return 'The TLS/SSL handshake failed. Port 587 needs STARTTLS and port 465 needs implicit TLS; check BREVO_SMTP_PORT, and antivirus/proxy HTTPS inspection.';
-  }
-  if (code === 'EMESSAGE' || code === 'EPROTOCOL') {
-    return 'The SMTP server rejected the message or answered unexpectedly. See the SMTP response code.';
-  }
-  return 'Check BREVO_SMTP_HOST, BREVO_SMTP_PORT and the Brevo credentials.';
+  return 'Check BREVO_API_KEY, EMAIL_FROM_ADDRESS and the Brevo account status.';
 };
 
-// Logs the real reason a send failed. Never logs the SMTP key, the code, the recipient or the server's
-// raw reply; the error message is sanitized first.
+// Logs the real reason a send failed. Never logs the API key, the code, the recipient or Brevo's raw reply;
+// the error message is sanitized first.
 const logSendFailure = (err, context) => {
-  const { host, port } = config.email;
   const fields = [
     `code=${(err && err.code) || 'UNKNOWN'}`,
     `errorName=${(err && err.name) || 'n/a'}`,
-    `smtpResponse=${(err && err.responseCode) || 'n/a'}`,
-    `command=${(err && err.command) || 'n/a'}`,
-    `syscall=${(err && err.syscall) || 'n/a'}`,
-    `errno=${(err && err.errno) || 'n/a'}`,
-    `host=${host}`,
-    `port=${port}`,
+    `httpStatus=${(err && err.httpStatus) || 'n/a'}`,
+    `brevoCode=${(err && err.brevoCode) || 'n/a'}`,
+    `endpoint=${config.email.apiUrl}`,
   ];
   const message = sanitizeForLog(err && err.message, context);
-  logger.error(`Brevo SMTP send failed: ${fields.join(', ')}. message="${message}". CAUSE: ${getFailureHint(err)}`);
+  logger.error(`Brevo API send failed: ${fields.join(', ')}. message="${message}". CAUSE: ${getFailureHint(err)}`);
 };
 
 // ---------- public API ----------
@@ -176,7 +201,7 @@ const logSendFailure = (err, context) => {
 const sendOtpEmail = async ({ to, name, otp, expiresInMinutes, purpose }) => {
   if (!isEmailConfigured()) {
     logger.error(
-      'Brevo SMTP is not configured: set BREVO_SMTP_USER, BREVO_SMTP_PASS and EMAIL_FROM_ADDRESS in .env to send verification emails.'
+      'Brevo email is not configured: set BREVO_API_KEY and EMAIL_FROM_ADDRESS (in .env, or in the Render environment) to send verification emails.'
     );
     throw new ApiError(503, 'The email service is not available right now. Please try again later.');
   }
@@ -189,10 +214,10 @@ const sendOtpEmail = async ({ to, name, otp, expiresInMinutes, purpose }) => {
   }
 };
 
-// Test hook: replace the SMTP transport with a fake ({ sendMail }). Pass nothing to restore.
+// Test hook: replace the Brevo transport with a fake ({ sendMail }). Pass nothing to restore.
 const _setTransportForTests = (fake) => {
   transport = null;
-  transportFactory = fake ? () => fake : createSmtpTransport;
+  transportFactory = fake ? () => fake : createBrevoTransport;
 };
 
 module.exports = { sendOtpEmail, isEmailConfigured, buildOtpMessage, _setTransportForTests, _getFailureHintForTests: getFailureHint };

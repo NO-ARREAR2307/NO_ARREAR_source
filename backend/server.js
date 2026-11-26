@@ -24,9 +24,9 @@ if (!config.gemini.apiKey) {
 }
 
 if (isEmailConfigured()) {
-  logger.info(`Brevo SMTP configured (host: ${config.email.host}, port: ${config.email.port}, sender: ${config.email.fromAddress}).`);
+  logger.info(`Brevo email API configured (sender: ${config.email.fromName} <${config.email.fromAddress}>).`);
 } else {
-  logger.warn('Brevo SMTP is not configured: verification emails cannot be sent (registration still works; resending a code answers 503) until BREVO_SMTP_USER, BREVO_SMTP_PASS and EMAIL_FROM_ADDRESS are added to .env.');
+  logger.warn('Brevo email is not configured: verification emails cannot be sent (registration still works; resending a code answers 503) until BREVO_API_KEY and EMAIL_FROM_ADDRESS are set.');
 }
 
 const app = require('./app');

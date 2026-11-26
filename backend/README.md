@@ -11,7 +11,7 @@ Backend API for **STUDYWISE AI**, an AI-powered semester examination preparation
 - MongoDB Atlas with Mongoose
 - Auth: jsonwebtoken, bcryptjs
 - Uploads: multer
-- Email: nodemailer with Brevo SMTP (verification codes)
+- Email: Brevo HTTPS Transactional Email API (verification and password-reset codes)
 - Text extraction: pdfjs-dist (PDF text), Tesseract.js (local OCR, no paid API), sharp (image clean-up)
 - AI answers: Google Gemini REST API (called with Node's built-in `fetch`, no extra package)
 
@@ -163,7 +163,7 @@ studywise-ai-backend/
     extractionService.js     Chooses PDF text extraction or image OCR for a verified file
     pdfExtractionService.js  Page-by-page PDF text extraction (pdfjs-dist), scanned/corrupt/locked PDF detection
     ocrService.js            Image OCR (Tesseract.js + sharp), rotation retry, time and queue limits
-    emailService.js          Brevo SMTP sender (Nodemailer) for the verification email; never logs the code or credentials
+    emailService.js          Brevo HTTPS API sender for the verification / password-reset email; never logs the code or the API key
     otpService.js            Generates the 6-digit code, stores its keyed hash, enforces the resend cooldown, sends the email; verifyEmailOtp checks it (expiry, single use, attempt limit)
     academicService.js       Academic admin rules: parent checks, duplicates, safe deactivation, listing
     academicImportService.js Subject bulk import: validation, duplicate detection, dry run, non-destructive insert
@@ -602,7 +602,7 @@ The password is hashed with bcrypt by the same model hook as registration and is
 
 ### Email verification codes (Phase 0B)
 
-When a student registers, the API creates the account with `emailVerified: false`, generates a random 6-digit code and emails it through Brevo SMTP. The code is valid for **5 minutes**.
+When a student registers, the API creates the account with `emailVerified: false`, generates a random 6-digit code and emails it through the Brevo HTTPS API. The code is valid for **5 minutes**.
 
 - **Storage:** only an HMAC-SHA256 hash of the code (keyed with `OTP_HASH_SECRET`, or a key derived from `JWT_SECRET`, and the user id) is stored, in the `emailotps` collection. There is one document per student, and MongoDB removes it automatically after it expires. The plain code exists only in memory and in the outgoing email: it is never stored, logged or returned by the API.
 - **Registration response:** the `user` (with `emailVerified: false`) but **no `token`**, plus `emailVerification` (`otpSent`, `sentTo` masked, `expiresInSeconds`, `resendCooldownSeconds`). If the email cannot be sent, the account is still created and `otpSent` is `false`; the student can ask for a new code.
@@ -612,13 +612,13 @@ When a student registers, the API creates the account with `emailVerified: false
 - **Who must verify:** every account except admins. Login answers `403` with `"code": "EMAIL_NOT_VERIFIED"` for an unverified student (only after the correct password was given, so it reveals nothing to a stranger), and `protect` refuses the same student on every JWT-protected route, so tokens issued before this rule stop working until the email is verified. Admins (created by `npm run seed:admin`, never through registration) are exempt: an existing admin can always log in and use `/api/admin/*`, whatever their `emailVerified` value.
 - **Existing student accounts** created before this rule have `emailVerified: false`. They must verify once: `POST /api/auth/resend-otp`, then `POST /api/auth/verify-email`.
 
-#### Setting up Brevo SMTP
+#### Setting up Brevo (HTTPS API)
 
-1. Create a Brevo account. Under **SMTP & API > SMTP** copy the **SMTP login** and generate an **SMTP key**.
+1. Create a Brevo account. Under **SMTP & API > API Keys** generate an **API key** (starts with `xkeysib-`). It is sent over HTTPS (port 443), so it works on hosts that block SMTP ports, such as Render.
 2. Under **Senders, Domains & Dedicated IPs** add the address you want emails to come from and verify it.
-3. In your `.env` set `BREVO_SMTP_USER` (the SMTP login), `BREVO_SMTP_PASS` (the SMTP key) and `EMAIL_FROM_ADDRESS` (the verified sender). Do not put real values in `.env.example`.
-4. Run `npm install` (adds `nodemailer`) and restart. The startup log shows `Brevo SMTP configured` or a warning if the three values are missing.
-5. Register a student with a real inbox, or call `POST /api/auth/resend-otp`, and check the email. A failed send is logged with an error code and a hint (for example `EAUTH` = wrong SMTP login or key).
+3. In your `.env` (or the Render environment) set `BREVO_API_KEY` and `EMAIL_FROM_ADDRESS` (the verified sender). If **Security > Authorised IPs** is active in Brevo, deactivate IP blocking (Render IP addresses change). Do not put real values in `.env.example`.
+4. Restart. The startup log shows `Brevo email API configured` or a warning if the values are missing.
+5. Register a student with a real inbox, or call `POST /api/auth/resend-otp`, and check the email. A failed send is logged with an error code and a hint (for example `httpStatus=401` = wrong or revoked API key).
 
 #### Testing in Postman
 
@@ -828,13 +828,11 @@ See `.env.example`. `MONGO_URI` and `JWT_SECRET` are required; the rest have saf
 | `OCR_LANG_PATH`      | empty                   | Folder with an uncompressed `.traineddata` for offline OCR |
 | `MAX_EXTRACTED_TEXT_CHARS` | `1000000`         | Extracted text longer than this is cut off   |
 | `EXTRACT_LIMIT_MAX`  | `20`                    | Extract calls per student per 15 minutes     |
-| `BREVO_SMTP_USER`    | empty                   | Brevo SMTP login (set together with the next two, or none) |
-| `BREVO_SMTP_PASS`    | empty                   | Brevo SMTP key (secret)                      |
+| `BREVO_API_KEY`      | empty                   | Brevo API key (secret; set together with `EMAIL_FROM_ADDRESS`, or neither) |
 | `EMAIL_FROM_ADDRESS` | empty                   | Sender address verified in Brevo             |
-| `EMAIL_FROM_NAME`    | `STUDYWISE AI`          | Sender display name                          |
-| `BREVO_SMTP_HOST`    | `smtp-relay.brevo.com`  | Brevo SMTP server                            |
-| `BREVO_SMTP_PORT`    | `587`                   | `587` (STARTTLS) or `465` (implicit TLS)     |
-| `EMAIL_TIMEOUT_MS`   | `15000`                 | Stop waiting for the SMTP server after this long |
+| `EMAIL_FROM_NAME`    | `NO_ARREAR`             | Sender display name                          |
+| `BREVO_API_URL`      | `https://api.brevo.com/v3/smtp/email` | Brevo transactional email endpoint |
+| `EMAIL_TIMEOUT_MS`   | `15000`                 | Stop waiting for Brevo after this long       |
 | `OTP_RESEND_COOLDOWN_SECONDS` | `60`           | Wait time before a new code can be requested (10 to 3600) |
 | `OTP_RESEND_LIMIT_MAX` | `10`                  | Resend requests per IP per 15 minutes        |
 | `OTP_MAX_ATTEMPTS`   | `5`                     | Wrong guesses allowed per code before it is locked (3 to 10) |
@@ -858,7 +856,7 @@ Never commit `.env`. It is already listed in `.gitignore`.
 - **"Authentication failed"** - check the database username and password; URL-encode special characters in the password.
 - **"Could not reach the database"** - in Atlas **Network Access**, add your current IP address, and make sure the cluster is not paused.
 - **"The cluster address could not be resolved"** - check the host part of `MONGO_URI` and your internet connection.
-- **Registration works but no verification email arrives** - read the server log line `Brevo SMTP send failed: code=..., smtpResponse=..., CAUSE: ...`. `code=MODULE_NOT_FOUND` means `nodemailer` is not installed: run `npm install` and restart. `EAUTH` = wrong SMTP login/key; `EENVELOPE`/`550` = `EMAIL_FROM_ADDRESS` is not a verified Brevo sender; `ECONNECTION`/`ETIMEDOUT` = network, firewall or port problem. The log never contains the SMTP key, the code or the recipient, and the API answer stays generic.
+- **Registration works but no verification email arrives** - read the server log line `Brevo API send failed: code=..., httpStatus=..., CAUSE: ...`. `httpStatus=401` = wrong or revoked `BREVO_API_KEY` (it must be an API key, not an SMTP key); `403` = Brevo account inactive or Authorised IPs blocking Render; `400` = `EMAIL_FROM_ADDRESS` is not a verified Brevo sender; `ETIMEDOUT`/`ECONNECTION` = the server cannot reach `api.brevo.com` over HTTPS. The log never contains the API key, the code or the recipient, and the API answer stays generic.
 - **"Port 5000 is already in use"** - change `PORT` in `.env`, or stop the other program using that port.
 - **"Configuration problem(s) found"** - the message says which `.env` value is invalid (for example a non-numeric `PORT`).
 - **"'cross-env' is not recognized"** - run `npm install` again.

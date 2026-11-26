@@ -90,16 +90,14 @@ const config = {
     // "low", "medium" or "high" (Gemini 3.x). Low keeps answers fast. Set to "none" to not send it.
     thinkingLevel: (process.env.GEMINI_THINKING_LEVEL || 'low').trim().toLowerCase(),
   },
-  // Outgoing email through Brevo SMTP (used by services/emailService.js). Everything is optional at
-  // startup so the rest of the API keeps working; sending a verification email answers 503 until the
-  // three credentials below are set. The values only ever come from the environment.
+  // Outgoing email through the Brevo HTTPS Transactional Email API (used by services/emailService.js).
+  // Everything is optional at startup so the rest of the API keeps working; sending a verification email
+  // answers 503 until BREVO_API_KEY and EMAIL_FROM_ADDRESS are set. The values only ever come from the environment.
   email: {
-    host: (process.env.BREVO_SMTP_HOST || 'smtp-relay.brevo.com').trim(),
-    port: toInt(process.env.BREVO_SMTP_PORT, 587),
-    user: (process.env.BREVO_SMTP_USER || '').trim(), // the SMTP login shown in Brevo (not your account email)
-    pass: process.env.BREVO_SMTP_PASS || '', // the Brevo SMTP key
+    apiKey: (process.env.BREVO_API_KEY || '').trim(), // Brevo API key (xkeysib-...), never an SMTP key
+    apiUrl: (process.env.BREVO_API_URL || 'https://api.brevo.com/v3/smtp/email').trim(),
     fromAddress: (process.env.EMAIL_FROM_ADDRESS || '').trim(), // must be a verified sender in Brevo
-    fromName: (process.env.EMAIL_FROM_NAME || 'STUDYWISE AI').trim(),
+    fromName: (process.env.EMAIL_FROM_NAME || 'NO_ARREAR').trim(),
     timeoutMs: toInt(process.env.EMAIL_TIMEOUT_MS, 15 * 1000),
   },
   // Student email verification codes (services/otpService.js). The 6-digit length and the 5-minute
@@ -169,17 +167,13 @@ const validateEnv = () => {
     }
   }
 
-  // ----- Email (Brevo SMTP) and email OTP: all optional, but a half-filled setup is a mistake -----
-  const rawSmtpPort = process.env.BREVO_SMTP_PORT;
-  if (rawSmtpPort !== undefined && rawSmtpPort.trim() !== '') {
-    const smtpPort = Number(rawSmtpPort);
-    if (!Number.isInteger(smtpPort) || smtpPort < 1 || smtpPort > 65535) {
-      problems.push(`BREVO_SMTP_PORT must be a whole number between 1 and 65535 (received "${rawSmtpPort}").`);
-    }
+  // ----- Email (Brevo API) and email OTP: all optional, but a half-filled setup is a mistake -----
+  const emailPartsSet = [config.email.apiKey, config.email.fromAddress].filter(Boolean).length;
+  if (emailPartsSet === 1) {
+    problems.push('Brevo email is only partly configured. Set BREVO_API_KEY and EMAIL_FROM_ADDRESS together, or leave both empty.');
   }
-  const smtpPartsSet = [config.email.user, config.email.pass, config.email.fromAddress].filter(Boolean).length;
-  if (smtpPartsSet > 0 && smtpPartsSet < 3) {
-    problems.push('Brevo SMTP is only partly configured. Set BREVO_SMTP_USER, BREVO_SMTP_PASS and EMAIL_FROM_ADDRESS together, or leave all three empty.');
+  if (!/^https:\/\/[^\s/]+/i.test(config.email.apiUrl)) {
+    problems.push('BREVO_API_URL must start with https:// (default: https://api.brevo.com/v3/smtp/email).');
   }
   if (config.email.fromAddress && !EMAIL_PATTERN.test(config.email.fromAddress)) {
     problems.push('EMAIL_FROM_ADDRESS is not a valid email address.');

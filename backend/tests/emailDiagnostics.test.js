@@ -1,12 +1,12 @@
 'use strict';
 
-// Tests for Phase 0B email delivery diagnostics: a failed send must log the real error code and a safe
-// message, never a secret, the OTP or the recipient, while the API error stays generic.
+// Tests for email delivery through the Brevo HTTPS API (Phase 0B): the real transport must call Brevo with the
+// right request, and a failed send must log the real error code and a safe message, never the API key, the OTP
+// or the recipient, while the API error stays generic.
 process.env.NODE_ENV = 'test';
 process.env.JWT_SECRET = 'unit-test-secret-unit-test-secret-1234567890';
 process.env.MONGO_URI = 'mongodb://localhost:27017/studywise_ai_test';
-process.env.BREVO_SMTP_USER = 'login-user-9z@smtp-brevo.com';
-process.env.BREVO_SMTP_PASS = 'xsmtpsib-SECRETKEYSECRETKEY-abc';
+process.env.BREVO_API_KEY = 'xkeysib-SECRETKEYSECRETKEY-abc';
 process.env.EMAIL_FROM_ADDRESS = 'no-reply@studywise.test';
 
 const test = require('node:test');
@@ -25,53 +25,135 @@ const captureErrors = async (fn) => {
   return lines.join('\n');
 };
 
-const send = () => emailService.sendOtpEmail({ to: 'student@example.com', name: 'S', otp: '482913', expiresInMinutes: 5 });
+const send = (extra = {}) =>
+  emailService.sendOtpEmail({ to: 'student@example.com', name: 'S', otp: '482913', expiresInMinutes: 5, ...extra });
 
-test('EAUTH: logs code, SMTP reply code and a hint; client error stays generic', async () => {
-  const error = Object.assign(new Error('Invalid login: 535 5.7.8 Authentication failed for student@example.com using xsmtpsib-SECRETKEYSECRETKEY-abc 482913'), {
-    code: 'EAUTH',
-    responseCode: 535,
-    command: 'AUTH PLAIN',
-  });
-  emailService._setTransportForTests({ sendMail: async () => { throw error; } });
+const realFetch = global.fetch;
+test.afterEach(() => {
+  global.fetch = realFetch;
+  emailService._setTransportForTests();
+});
+
+const jsonResponse = (status, body) => ({ ok: status >= 200 && status < 300, status, json: async () => body });
+
+test('sends through the Brevo HTTPS API with the api-key header and the NO_ARREAR sender', async () => {
+  let call;
+  global.fetch = async (url, options) => {
+    call = { url, options };
+    return jsonResponse(201, { messageId: '<abc@smtp-relay.mailin.fr>' });
+  };
+
+  await send();
+
+  assert.equal(call.url, 'https://api.brevo.com/v3/smtp/email');
+  assert.equal(call.options.method, 'POST');
+  assert.equal(call.options.headers['api-key'], 'xkeysib-SECRETKEYSECRETKEY-abc');
+  assert.equal(call.options.headers['content-type'], 'application/json');
+  const body = JSON.parse(call.options.body);
+  assert.deepEqual(body.sender, { name: 'NO_ARREAR', email: 'no-reply@studywise.test' });
+  assert.deepEqual(body.to, [{ email: 'student@example.com' }]);
+  assert.equal(body.subject, 'Your NO_ARREAR verification code');
+  assert.match(body.htmlContent, /482913/);
+  assert.match(body.textContent, /482913/);
+  assert.ok(!call.options.body.includes('xkeysib'), 'the API key is only sent in the header');
+});
+
+test('password-reset purpose keeps its own template over the API', async () => {
+  let body;
+  global.fetch = async (url, options) => {
+    body = JSON.parse(options.body);
+    return jsonResponse(201, {});
+  };
+  await send({ purpose: 'password-reset' });
+  assert.equal(body.subject, 'Your NO_ARREAR password reset code');
+  assert.match(body.textContent, /reset your NO_ARREAR password/);
+});
+
+test('HTTP 401: logs status, code and a hint; client error stays generic; nothing secret is logged', async () => {
+  global.fetch = async () =>
+    jsonResponse(401, {
+      code: 'unauthorized',
+      message: 'Key not found: xkeysib-SECRETKEYSECRETKEY-abc for student@example.com 482913',
+    });
 
   let thrown;
   const log = await captureErrors(async () => {
-    try { await send(); } catch (err) { thrown = err; }
+    try {
+      await send();
+    } catch (err) {
+      thrown = err;
+    }
   });
 
   assert.equal(thrown.statusCode, 502);
   assert.match(thrown.message, /could not send the verification email/i);
-  assert.ok(!/EAUTH|535|smtp/i.test(thrown.message));
-  assert.match(log, /code=EAUTH/);
-  assert.match(log, /smtpResponse=535/);
-  assert.match(log, /command=AUTH PLAIN/);
-  assert.match(log, /CAUSE: Brevo rejected the login/);
-  for (const secret of ['SECRETKEYSECRETKEY', 'xsmtpsib', 'login-user-9z', 'student@example.com', '482913']) {
+  assert.ok(!/401|brevo|unauthorized/i.test(thrown.message));
+  assert.match(log, /code=BREVO_HTTP_ERROR/);
+  assert.match(log, /httpStatus=401/);
+  assert.match(log, /brevoCode=unauthorized/);
+  assert.match(log, /CAUSE: Brevo rejected the API key/);
+  for (const secret of ['SECRETKEYSECRETKEY', 'student@example.com', '482913']) {
     assert.ok(!log.includes(secret), `log must not contain ${secret}`);
   }
-  emailService._setTransportForTests();
 });
 
-test('MODULE_NOT_FOUND (nodemailer not installed) is reported as such, not as a network problem', async () => {
-  const error = Object.assign(new Error("Cannot find module 'nodemailer'"), { code: 'MODULE_NOT_FOUND' });
-  emailService._setTransportForTests({ sendMail: async () => { throw error; } });
+test('HTTP 400 points at the verified sender', async () => {
+  global.fetch = async () => jsonResponse(400, { code: 'invalid_parameter', message: 'Sender not valid' });
   const log = await captureErrors(async () => {
     await assert.rejects(send(), { statusCode: 502 });
   });
-  assert.match(log, /code=MODULE_NOT_FOUND/);
-  assert.match(log, /nodemailer.*not installed.*npm install/);
-  emailService._setTransportForTests();
+  assert.match(log, /httpStatus=400/);
+  assert.match(log, /EMAIL_FROM_ADDRESS must be a sender/);
 });
 
-test('network failures log syscall, host and port', async () => {
-  const error = Object.assign(new Error('connect ECONNREFUSED 1.2.3.4:587'), { code: 'ECONNECTION', syscall: 'connect', errno: -111 });
-  emailService._setTransportForTests({ sendMail: async () => { throw error; } });
+test('network failures log the error code and the endpoint', async () => {
+  global.fetch = async () => {
+    const err = new TypeError('fetch failed');
+    err.cause = Object.assign(new Error('connect ECONNREFUSED 1.2.3.4:443'), { code: 'ECONNREFUSED' });
+    throw err;
+  };
   const log = await captureErrors(async () => {
     await assert.rejects(send(), { statusCode: 502 });
   });
-  assert.match(log, /code=ECONNECTION/);
-  assert.match(log, /syscall=connect/);
-  assert.match(log, /host=smtp-relay\.brevo\.com, port=587/);
-  emailService._setTransportForTests();
+  assert.match(log, /code=ECONNREFUSED/);
+  assert.match(log, /endpoint=https:\/\/api\.brevo\.com\/v3\/smtp\/email/);
+  assert.match(log, /Could not reach the Brevo API over HTTPS/);
+});
+
+test('a request that never answers is aborted and reported as ETIMEDOUT', async () => {
+  const { config } = require('../config/env');
+  const saved = config.email.timeoutMs;
+  config.email.timeoutMs = 20;
+  global.fetch = (url, options) =>
+    new Promise((resolve, reject) => {
+      options.signal.addEventListener('abort', () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' })));
+    });
+  try {
+    const log = await captureErrors(async () => {
+      await assert.rejects(send(), { statusCode: 502 });
+    });
+    assert.match(log, /code=ETIMEDOUT/);
+  } finally {
+    config.email.timeoutMs = saved;
+  }
+});
+
+test('without BREVO_API_KEY nothing is sent and the answer is 503', async () => {
+  const { config } = require('../config/env');
+  const saved = config.email.apiKey;
+  config.email.apiKey = '';
+  let called = false;
+  global.fetch = async () => {
+    called = true;
+    return jsonResponse(201, {});
+  };
+  try {
+    await captureErrors(async () => {
+      await assert.rejects(send(), { statusCode: 503 });
+    });
+    assert.equal(called, false);
+    assert.equal(emailService.isEmailConfigured(), false);
+  } finally {
+    config.email.apiKey = saved;
+  }
 });

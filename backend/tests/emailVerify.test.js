@@ -2,7 +2,7 @@
 
 // Tests for Phase 0B Part 2: OTP verification, attempt limits and "verified students only".
 // Run with:  npm test
-// No database, internet or real Brevo account is needed: the User/EmailOtp database calls and the SMTP
+// No database, internet or real Brevo account is needed: the User/EmailOtp database calls and the Brevo
 // transport are replaced by in-memory test doubles that follow the same rules as the real queries
 // (filters with $gt / $not $gte, atomic $inc, atomic find-and-delete). Everything else (Express app,
 // controller, OTP service, auth middleware, role middleware, error handler) is the real code.
@@ -11,8 +11,7 @@ process.env.NODE_ENV = 'test';
 process.env.JWT_SECRET = 'unit-test-secret-unit-test-secret-1234567890';
 process.env.MONGO_URI = 'mongodb://localhost:27017/studywise_ai_test';
 process.env.RATE_LIMIT_MAX = '10000';
-process.env.BREVO_SMTP_USER = 'test-login@smtp-brevo.com';
-process.env.BREVO_SMTP_PASS = 'SMTP_KEY_SHOULD_NEVER_LEAK';
+process.env.BREVO_API_KEY = 'xkeysib-API_KEY_SHOULD_NEVER_LEAK';
 process.env.EMAIL_FROM_ADDRESS = 'no-reply@studywise.test';
 process.env.OTP_RESEND_COOLDOWN_SECONDS = '60';
 process.env.OTP_RESEND_LIMIT_MAX = '1000';
@@ -95,7 +94,7 @@ EmailOtp.deleteOne = async (filter) => {
   if (existing && existing.otpHash === filter.otpHash) otpStore.delete(String(filter.user));
 };
 
-// ----- SMTP double -----
+// ----- Brevo transport double -----
 let sentMails;
 emailService._setTransportForTests({
   sendMail: async (message) => {

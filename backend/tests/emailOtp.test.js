@@ -11,8 +11,7 @@ process.env.NODE_ENV = 'test';
 process.env.JWT_SECRET = 'unit-test-secret-unit-test-secret-1234567890';
 process.env.MONGO_URI = 'mongodb://localhost:27017/studywise_ai_test';
 process.env.RATE_LIMIT_MAX = '10000';
-process.env.BREVO_SMTP_USER = 'test-login@smtp-brevo.com';
-process.env.BREVO_SMTP_PASS = 'SMTP_KEY_SHOULD_NEVER_LEAK';
+process.env.BREVO_API_KEY = 'xkeysib-API_KEY_SHOULD_NEVER_LEAK';
 process.env.EMAIL_FROM_ADDRESS = 'no-reply@studywise.test';
 process.env.OTP_RESEND_COOLDOWN_SECONDS = '60';
 process.env.OTP_RESEND_LIMIT_MAX = '1000';
@@ -65,7 +64,7 @@ EmailOtp.deleteOne = async (filter) => {
   if (existing && existing.otpHash === filter.otpHash) otpStore.delete(String(filter.user));
 };
 
-// ----- SMTP transport double -----
+// ----- Brevo transport double -----
 let sentMails;
 let sendImpl;
 const okSend = async (message) => {
@@ -209,10 +208,9 @@ test('registration creates an unverified student, stores only a hash and emails 
 
 test('registration still succeeds (otpSent false) when the email cannot be sent, and no code is left behind', async () => {
   sendImpl = async () => {
-    const error = new Error('535 5.7.8 Authentication failed for SMTP_KEY_SHOULD_NEVER_LEAK');
-    error.code = 'EAUTH';
-    error.responseCode = 535;
-    error.command = 'AUTH PLAIN';
+    const error = new Error('Key not found: xkeysib-API_KEY_SHOULD_NEVER_LEAK');
+    error.code = 'BREVO_HTTP_ERROR';
+    error.httpStatus = 401;
     throw error;
   };
   const result = await call('/api/auth/register', { body: registerBody() });
@@ -222,13 +220,13 @@ test('registration still succeeds (otpSent false) when the email cannot be sent,
   assert.equal(result.json.token, undefined, 'no JWT before the email is verified (Part 2)');
   assert.equal(otpStore.size, 0, 'an unsent code is removed so the student can retry at once');
   const everything = result.text + captured.join('\n');
-  assert.ok(!everything.includes('SMTP_KEY_SHOULD_NEVER_LEAK'), 'credentials and SMTP replies must not leak');
-  assert.ok(captured.join('\n').includes('EAUTH'), 'the cause code is logged for the operator');
+  assert.ok(!everything.includes('API_KEY_SHOULD_NEVER_LEAK'), 'credentials and Brevo replies must not leak');
+  assert.ok(captured.join('\n').includes('httpStatus=401'), 'the cause code is logged for the operator');
 });
 
 test('registration still succeeds when Brevo is not configured', async () => {
   const saved = { ...config.email };
-  Object.assign(config.email, { user: '', pass: '', fromAddress: '' });
+  Object.assign(config.email, { apiKey: '', fromAddress: '' });
   try {
     const result = await call('/api/auth/register', { body: registerBody() });
     assert.equal(result.status, 201);
@@ -324,7 +322,7 @@ test('resend answers 503 when Brevo is not configured', async () => {
   await call('/api/auth/register', { body: registerBody() });
   storedFor('asha@example.com').lastSentAt = new Date(Date.now() - 61 * 1000);
   const saved = { ...config.email };
-  Object.assign(config.email, { user: '', pass: '', fromAddress: '' });
+  Object.assign(config.email, { apiKey: '', fromAddress: '' });
   try {
     const result = await call('/api/auth/resend-otp', { body: { email: 'asha@example.com' } });
     assert.equal(result.status, 503);

@@ -40,7 +40,7 @@ const CONFIG = {
   rateLimit: { windowMs: 60000, max: 100 },
   extraction: { userLimitWindowMs: 60000, userLimitMax: 5 },
   bcryptSaltRounds: 4,
-  email: { host: 'smtp.test', port: 587, user: 'u', pass: 'p', fromAddress: 'noreply@test.dev', fromName: 'Test', timeoutMs: 1000 },
+  email: { apiKey: 'xkeysib-test', apiUrl: 'https://api.brevo.test/v3/smtp/email', fromAddress: 'noreply@test.dev', fromName: 'Test', timeoutMs: 1000 },
   emailOtp: {
     hashSecret: 'test-otp-secret',
     resendCooldownSeconds: 60,
@@ -386,11 +386,11 @@ test('admins can reset their password too (they are exempt from email verificati
 test('the reset email has its own wording; the verification email is unchanged', () => {
   const base = { to: 'a@b.co', name: 'Asha', otp: '123456', expiresInMinutes: 5 };
   const verification = emailService.buildOtpMessage(base);
-  assert.equal(verification.subject, 'Your STUDYWISE AI verification code');
+  assert.equal(verification.subject, 'Your NO_ARREAR verification code');
   assert.match(verification.text, /verify your email address/);
   const reset = emailService.buildOtpMessage({ ...base, purpose: 'password-reset' });
-  assert.equal(reset.subject, 'Your STUDYWISE AI password reset code');
-  assert.match(reset.text, /reset your STUDYWISE AI password/);
+  assert.equal(reset.subject, 'Your NO_ARREAR password reset code');
+  assert.match(reset.text, /reset your NO_ARREAR password/);
   assert.match(reset.text, /123456/);
 });
 

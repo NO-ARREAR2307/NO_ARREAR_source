@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Download, Eye } from 'lucide-react'
-import logo from '../assets/logo.svg'
+import logo from '../assets/logo.png'
 import { Alert, Button, Card, DetailsSkeleton, StatusMessage } from '../components/ui'
 import { describeError } from '../services/materialService.js'
 import { downloadSharedFile, fetchSharedFile, fetchSharedMaterial } from '../services/sharingService.js'
@@ -143,7 +143,7 @@ function SharedMaterial() {
     <div className="shared">
       <header className="shared__bar">
         <Link to="/" className="brand">
-          <img src={logo} alt="" className="brand__logo" />
+          <img src={logo} alt="NO_ARREAR logo" className="brand__logo" />
           <span className="brand__name">NO_ARREAR</span>
         </Link>
       </header>

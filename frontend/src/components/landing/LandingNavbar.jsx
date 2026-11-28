@@ -1,7 +1,7 @@
 import { Menu, X } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import logo from '../../assets/logo.svg'
+import logo from '../../assets/logo.png'
 import useAuth from '../../hooks/useAuth.js'
 
 const links = [
@@ -17,7 +17,7 @@ function LandingNavbar() {
   return (
     <nav className="lnav" aria-label="Main">
       <Link to="/" className="brand">
-        <img src={logo} alt="" className="brand__logo" />
+        <img src={logo} alt="NO_ARREAR logo" className="brand__logo" />
         <span className="brand__name">NO_ARREAR</span>
       </Link>
 

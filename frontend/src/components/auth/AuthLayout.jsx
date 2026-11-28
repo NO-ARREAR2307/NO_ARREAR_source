@@ -1,5 +1,5 @@
 import { Link, Outlet } from 'react-router-dom'
-import logo from '../../assets/logo.svg'
+import logo from '../../assets/logo.png'
 import HeroArt from '../landing/HeroArt.jsx'
 
 /** Split screen used by login, register and verify pages: prominent brand panel + form. */
@@ -8,7 +8,7 @@ function AuthLayout() {
     <div className="auth">
       <aside className="auth__panel">
         <Link to="/" className="brand brand--lg auth__brand-row">
-          <img src={logo} alt="" className="brand__logo" />
+          <img src={logo} alt="NO_ARREAR logo" className="brand__logo" />
           <span className="brand__name">NO_ARREAR</span>
         </Link>
         <div className="auth__art" aria-hidden="true">
@@ -25,7 +25,7 @@ function AuthLayout() {
       </aside>
       <main className="auth__main">
         <Link to="/" className="brand brand--dark auth__mobile-brand">
-          <img src={logo} alt="" className="brand__logo" />
+          <img src={logo} alt="NO_ARREAR logo" className="brand__logo" />
           <span className="brand__name">NO_ARREAR</span>
         </Link>
         <div className="auth__card">

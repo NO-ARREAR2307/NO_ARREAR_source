@@ -1,6 +1,6 @@
 import { LogOut, Menu } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import logo from '../../assets/logo.svg'
+import logo from '../../assets/logo.png'
 import useAuth from '../../hooks/useAuth.js'
 import Button from '../ui/Button.jsx'
 
@@ -14,7 +14,7 @@ function Navbar({ onMenuClick }) {
           <Menu size={20} />
         </button>
         <Link to="/dashboard" className="brand">
-          <img src={logo} alt="" className="brand__logo" />
+          <img src={logo} alt="NO_ARREAR logo" className="brand__logo" />
           <span className="brand__name">NO_ARREAR</span>
         </Link>
       </div>
